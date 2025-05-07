@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GPS 速度讀取</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #121212;
+      color: white;
+      text-align: center;
+      padding: 2em;
+    }
+    .speed-box {
+      font-size: 2em;
+      margin-top: 1.5em;
+      background: #1e1e1e;
+      padding: 1em;
+      border-radius: 12px;
+      display: inline-block;
+    }
+    button {
+      padding: 0.7em 1.5em;
+      font-size: 1em;
+      border-radius: 10px;
+      background: #3498db;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h1>目前移動速度</h1>
+  <button onclick="startTracking()">開始偵測</button>
+  <div id="speed" class="speed-box">尚未開始</div>
+
+  <script>
+    let watchId = null;
+
+    function startTracking() {
+      if (!navigator.geolocation) {
+        document.getElementById('speed').textContent = '瀏覽器不支援 GPS';
+        return;
+      }
+
+      document.getElementById('speed').textContent = '讀取中...';
+
+      watchId = navigator.geolocation.watchPosition(
+        (position) => {
+          const speed = position.coords.speed; // 單位：公尺/秒
+          let speedDisplay = '無法取得速度（可能靜止）';
+
+          if (speed !== null && !isNaN(speed)) {
+            const kmh = (speed * 3.6).toFixed(2); // 轉換為公里/小時
+            speedDisplay = `🚗 ${kmh} km/h`;
+          }
+
+          document.getElementById('speed').textContent = speedDisplay;
+        },
+        (error) => {
+          document.getElementById('speed').textContent = 'GPS 取得失敗：' + error.message;
+        },
+        {
+          enableHighAccuracy: true,
+          maximumAge: 1000,
+          timeout: 10000
+        }
+      );
+    }
+  </script>
+</body>
+</html>
