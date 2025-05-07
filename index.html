@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>即時天氣查詢（中央氣象局）</title>
   <link rel="manifest" href="manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="apple-touch-icon" href="icon-192.png">
   <style>
     body {
       background: #121212;
@@ -43,6 +46,19 @@
       min-width: 100px;
       flex-shrink: 0;
     }
+    button {
+      margin-top: 1em;
+      padding: 0.6em 1.2em;
+      font-size: 1em;
+      border-radius: 8px;
+      background-color: #3498db;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #2980b9;
+    }
   </style>
   <script>
     if ('serviceWorker' in navigator) {
@@ -54,7 +70,10 @@
 </head>
 <body>
   <h1>目前地點天氣（氣象局）</h1>
-  <div id="weather" class="weather-box">讀取中...</div>
+
+  <button onclick="getLocationAndFetchWeather()">📍 查詢目前位置天氣</button>
+
+  <div id="weather" class="weather-box">請點選上方按鈕以查詢</div>
 
   <select id="manualCounty" onchange="fetchWeather(this.value)">
     <option value="">請選擇縣市</option>
@@ -148,8 +167,6 @@
       document.body.style.background = '#f5f5f5';
       document.body.style.color = 'black';
     }
-
-    getLocationAndFetchWeather();
   </script>
 </body>
 </html>
