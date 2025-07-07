@@ -2,18 +2,103 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8" />
-<title>純前端記帳系統 (含帳戶餘額)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>手機友善純前端記帳系統</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-  body { font-family: sans-serif; background:#222; color:#eee; margin:20px; }
-  .container { max-width: 700px; margin: auto; background:#333; padding: 20px; border-radius: 8px; }
-  input, select, button { width: 100%; margin: 8px 0; padding: 10px; border-radius: 5px; border:none; }
-  button { background:#0b0; color:#fff; cursor:pointer; }
-  table { width: 100%; border-collapse: collapse; margin-top: 10px; background:#444; }
-  th, td { padding: 8px; border: 1px solid #555; text-align: center; }
-  .btn-small { padding: 4px 8px; margin: 0 2px; cursor:pointer; }
-  .btn-edit { background: #2196f3; color: white; border: none; border-radius: 3px; }
-  .btn-delete { background: #f44336; color: white; border: none; border-radius: 3px; }
+  body {
+    font-family: sans-serif;
+    background: #222;
+    color: #eee;
+    margin: 10px;
+    padding: 0;
+  }
+  .container {
+    max-width: 480px;
+    margin: auto;
+    background: #333;
+    padding: 15px;
+    border-radius: 8px;
+    box-sizing: border-box;
+  }
+  input, select, button {
+    width: 100%;
+    margin: 10px 0;
+    padding: 14px;
+    border-radius: 8px;
+    border: none;
+    font-size: 18px;
+    box-sizing: border-box;
+  }
+  button {
+    background: #0b0;
+    color: #fff;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background 0.3s;
+  }
+  button:hover {
+    background: #090;
+  }
+  h2, h3 {
+    margin: 12px 0 6px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #444;
+    font-size: 16px;
+    overflow-x: auto;
+    display: block;
+  }
+  thead tr {
+    background: #555;
+    display: table;
+    width: 100%;
+    table-layout: fixed;
+  }
+  tbody {
+    display: block;
+    max-height: 250px;
+    overflow-y: auto;
+    width: 100%;
+  }
+  tbody tr {
+    display: table;
+    width: 100%;
+    table-layout: fixed;
+    border-bottom: 1px solid #666;
+  }
+  th, td {
+    padding: 10px 6px;
+    text-align: center;
+    word-break: break-word;
+  }
+  .btn-small {
+    font-size: 14px;
+    padding: 6px 10px;
+    margin: 0 2px;
+    border-radius: 6px;
+  }
+  .btn-edit {
+    background: #2196f3;
+    color: white;
+    border: none;
+  }
+  .btn-delete {
+    background: #f44336;
+    color: white;
+    border: none;
+  }
+  #app-area > div {
+    font-size: 16px;
+    line-height: 1.6;
+    margin-bottom: 16px;
+  }
+  canvas {
+    width: 100% !important;
+    height: auto !important;
+  }
 </style>
 </head>
 <body>
@@ -21,7 +106,7 @@
 
 <h2>登入</h2>
 <div id="login-area">
-  <input type="text" id="login-username" placeholder="輸入帳號" />
+  <input type="text" id="login-username" placeholder="輸入帳號" autocomplete="username"/>
   <button onclick="login()">登入</button>
 </div>
 
@@ -37,19 +122,19 @@
   </div>
 
   <h3>新增記錄</h3>
-  <select id="type">
+  <select id="type" aria-label="類型">
     <option value="income">收入（賣出）</option>
     <option value="cost">支出（成本）</option>
   </select>
-  <select id="category">
+  <select id="category" aria-label="分類">
     <option>食物</option>
     <option>娛樂</option>
     <option>工具</option>
     <option>其他</option>
   </select>
-  <input type="number" id="amount" placeholder="金額" />
-  <input type="text" id="note" placeholder="備註" />
-  <button onclick="addRecord()">新增</button>
+  <input type="number" id="amount" placeholder="金額" aria-label="金額" />
+  <input type="text" id="note" placeholder="備註" aria-label="備註" />
+  <button onclick="addRecord()" aria-label="新增記錄">新增</button>
 
   <h3>記錄列表</h3>
   <table>
@@ -58,7 +143,7 @@
   </table>
 
   <h3>統計圖</h3>
-  <canvas id="pieChart" height="200"></canvas>
+  <canvas id="pieChart" height="200" aria-label="圓餅圖統計" role="img"></canvas>
 </div>
 
 <script>
@@ -89,12 +174,6 @@
       localStorage.setItem('initialBalance_' + currentUser, bal);
     }
     initialBalance = parseFloat(bal);
-    document.getElementById('initial-balance').textContent = initialBalance.toLocaleString();
-  }
-
-  function saveInitialBalance(newBalance) {
-    initialBalance = newBalance;
-    localStorage.setItem('initialBalance_' + currentUser, initialBalance);
     document.getElementById('initial-balance').textContent = initialBalance.toLocaleString();
   }
 
@@ -174,8 +253,8 @@
         <td>${r.amount}</td>
         <td>${r.note}</td>
         <td>
-          <button class="btn-small btn-edit" onclick="editRecord(${i})">✏️</button>
-          <button class="btn-small btn-delete" onclick="deleteRecord(${i})">🗑️</button>
+          <button class="btn-small btn-edit" onclick="editRecord(${i})" aria-label="編輯第${i+1}筆記錄">✏️</button>
+          <button class="btn-small btn-delete" onclick="deleteRecord(${i})" aria-label="刪除第${i+1}筆記錄">🗑️</button>
         </td>
       `;
       tbody.appendChild(tr);
@@ -192,7 +271,6 @@
     const profit = totalIncome - totalCost;
     document.getElementById('total-profit').textContent = profit.toLocaleString();
 
-    // 目前餘額 = 初始餘額 + 利潤
     const currentBalance = initialBalance + profit;
     document.getElementById('current-balance').textContent = currentBalance.toLocaleString();
 
