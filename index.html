@@ -1,173 +1,239 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-TW">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>即時天氣查詢（中央氣象局）</title>
-  <link rel="manifest" href="manifest.json">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <link rel="apple-touch-icon" href="icon-192.png">
-  <style>
-    body {
-      background: #121212;
-      color: white;
-      font-family: sans-serif;
-      text-align: center;
-      padding: 2em;
-      margin: 0;
-    }
-    .weather-box {
-      background: #1e1e1e;
-      padding: 20px;
-      border-radius: 12px;
-      display: inline-block;
-      width: 90%;
-      max-width: 400px;
-    }
-    #manualCounty {
-      display: none;
-      margin-top: 1em;
-      padding: 0.5em;
-      font-size: 1em;
-      border-radius: 8px;
-    }
-    .forecast-scroll {
-      display: flex;
-      overflow-x: auto;
-      gap: 1em;
-      margin-top: 1em;
-      padding-bottom: 1em;
-    }
-    .forecast-card {
-      background: #2a2a2a;
-      padding: 1em;
-      border-radius: 10px;
-      min-width: 100px;
-      flex-shrink: 0;
-    }
-    button {
-      margin-top: 1em;
-      padding: 0.6em 1.2em;
-      font-size: 1em;
-      border-radius: 8px;
-      background-color: #3498db;
-      color: white;
-      border: none;
-      cursor: pointer;
-    }
-    button:hover {
-      background-color: #2980b9;
-    }
-  </style>
-  <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('service-worker.js')
-        .then(reg => console.log('Service Worker 註冊成功'))
-        .catch(err => console.error('Service Worker 註冊失敗', err));
-    }
-  </script>
+<meta charset="UTF-8" />
+<title>純前端記帳系統 (含帳戶餘額)</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  body { font-family: sans-serif; background:#222; color:#eee; margin:20px; }
+  .container { max-width: 700px; margin: auto; background:#333; padding: 20px; border-radius: 8px; }
+  input, select, button { width: 100%; margin: 8px 0; padding: 10px; border-radius: 5px; border:none; }
+  button { background:#0b0; color:#fff; cursor:pointer; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; background:#444; }
+  th, td { padding: 8px; border: 1px solid #555; text-align: center; }
+  .btn-small { padding: 4px 8px; margin: 0 2px; cursor:pointer; }
+  .btn-edit { background: #2196f3; color: white; border: none; border-radius: 3px; }
+  .btn-delete { background: #f44336; color: white; border: none; border-radius: 3px; }
+</style>
 </head>
 <body>
-  <h1>目前地點天氣（氣象局）</h1>
+<div class="container">
 
-  <button onclick="getLocationAndFetchWeather()">📍 查詢目前位置天氣</button>
-  <button onclick="window.location.href='1.html'">📄 打開 1.html</button>
+<h2>登入</h2>
+<div id="login-area">
+  <input type="text" id="login-username" placeholder="輸入帳號" />
+  <button onclick="login()">登入</button>
+</div>
 
-  <div id="weather" class="weather-box">請點選上方按鈕以查詢</div>
+<div id="app-area" style="display:none;">
+  <h2>帳號：<span id="user-label"></span> <button onclick="logout()">登出</button></h2>
 
-  <select id="manualCounty" onchange="fetchWeather(this.value)">
-    <option value="">請選擇縣市</option>
-    <option>臺北市</option>
-    <option>新北市</option>
-    <option>桃園市</option>
-    <option>臺中市</option>
-    <option>高雄市</option>
+  <div>
+    <strong>帳戶初始餘額：</strong> <span id="initial-balance">0</span><br/>
+    <strong>已使用(支出)：</strong> <span id="total-cost">0</span><br/>
+    <strong>已賺(收入)：</strong> <span id="total-income">0</span><br/>
+    <strong>利潤：</strong> <span id="total-profit">0</span><br/>
+    <strong>目前餘額(初始 + 利潤)：</strong> <span id="current-balance">0</span>
+  </div>
+
+  <h3>新增記錄</h3>
+  <select id="type">
+    <option value="income">收入（賣出）</option>
+    <option value="cost">支出（成本）</option>
   </select>
+  <select id="category">
+    <option>食物</option>
+    <option>娛樂</option>
+    <option>工具</option>
+    <option>其他</option>
+  </select>
+  <input type="number" id="amount" placeholder="金額" />
+  <input type="text" id="note" placeholder="備註" />
+  <button onclick="addRecord()">新增</button>
 
-  <div id="forecast" class="forecast-scroll"></div>
+  <h3>記錄列表</h3>
+  <table>
+    <thead><tr><th>日期</th><th>類型</th><th>分類</th><th>金額</th><th>備註</th><th>操作</th></tr></thead>
+    <tbody id="record-table-body"></tbody>
+  </table>
 
-  <script>
-    const CWB_API_KEY = 'CWA-DB883F72-68EA-448D-B3F2-EC482B9D5EA0';
+  <h3>統計圖</h3>
+  <canvas id="pieChart" height="200"></canvas>
+</div>
 
-    function getCountyByLocation(lat, lon) {
-      if (lat > 24 && lat < 25.2 && lon > 121.2 && lon < 121.6) return '新北市';
-      return '臺北市';
+<script>
+  let currentUser = null;
+  let records = [];
+  let editingIndex = -1;
+  let pieChart = null;
+  let initialBalance = 0;
+
+  function login() {
+    const username = document.getElementById('login-username').value.trim();
+    if(!username) { alert('請輸入帳號'); return; }
+    currentUser = username;
+    document.getElementById('user-label').textContent = currentUser;
+    document.getElementById('login-area').style.display = 'none';
+    document.getElementById('app-area').style.display = 'block';
+
+    loadInitialBalance();
+    loadData();
+    render();
+  }
+
+  function loadInitialBalance() {
+    let bal = localStorage.getItem('initialBalance_' + currentUser);
+    if(bal === null) {
+      bal = prompt('請輸入帳戶初始餘額(預設0)', '0');
+      if(bal === null || isNaN(parseFloat(bal))) bal = '0';
+      localStorage.setItem('initialBalance_' + currentUser, bal);
+    }
+    initialBalance = parseFloat(bal);
+    document.getElementById('initial-balance').textContent = initialBalance.toLocaleString();
+  }
+
+  function saveInitialBalance(newBalance) {
+    initialBalance = newBalance;
+    localStorage.setItem('initialBalance_' + currentUser, initialBalance);
+    document.getElementById('initial-balance').textContent = initialBalance.toLocaleString();
+  }
+
+  function logout() {
+    if(confirm('確定要登出嗎？')) {
+      currentUser = null;
+      records = [];
+      editingIndex = -1;
+      initialBalance = 0;
+      document.getElementById('login-area').style.display = 'block';
+      document.getElementById('app-area').style.display = 'none';
+      document.getElementById('login-username').value = '';
+      clearInputs();
+    }
+  }
+
+  function loadData() {
+    const dataStr = localStorage.getItem('records_' + currentUser);
+    if(dataStr) {
+      records = JSON.parse(dataStr);
+    } else {
+      records = [];
+    }
+  }
+
+  function saveData() {
+    localStorage.setItem('records_' + currentUser, JSON.stringify(records));
+  }
+
+  function clearInputs() {
+    document.getElementById('type').value = 'income';
+    document.getElementById('category').value = '食物';
+    document.getElementById('amount').value = '';
+    document.getElementById('note').value = '';
+    editingIndex = -1;
+    document.querySelector('button[onclick="addRecord()"]').textContent = '新增';
+  }
+
+  function addRecord() {
+    const type = document.getElementById('type').value;
+    const category = document.getElementById('category').value;
+    const amount = parseFloat(document.getElementById('amount').value);
+    const note = document.getElementById('note').value.trim();
+    const date = new Date().toISOString().split('T')[0];
+
+    if(isNaN(amount) || amount <= 0) {
+      alert('請輸入有效金額');
+      return;
     }
 
-    const wxIconMap = {
-      '晴天': '☀️', '多雲': '⛅', '陰天': '☁️', '雨天': '🌧️', '雷雨': '⛈️'
-    };
-
-    function fetchWeather(county) {
-      const url = `https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-001?Authorization=${CWB_API_KEY}&locationName=${county}`;
-      fetch(url)
-        .then(res => res.json())
-        .then(data => {
-          const loc = data.records.location[0];
-          const weatherBox = document.getElementById('weather');
-
-          const name = loc.locationName;
-          const wx = loc.weatherElement.find(el => el.elementName === 'Wx').time[0].parameter.parameterName;
-          const minT = loc.weatherElement.find(el => el.elementName === 'MinT').time[0].parameter.parameterName;
-          const maxT = loc.weatherElement.find(el => el.elementName === 'MaxT').time[0].parameter.parameterName;
-          const pop = loc.weatherElement.find(el => el.elementName === 'PoP').time[0].parameter.parameterName;
-          const icon = wxIconMap[wx] || '❓';
-
-          weatherBox.innerHTML = `
-            <h2>${name}</h2>
-            <p style="font-size:2em;">${icon} ${wx}</p>
-            <p>氣溫：${minT} ~ ${maxT}°C</p>
-            <p>降雨機率：${pop}%</p>
-          `;
-          localStorage.setItem('weather', weatherBox.innerHTML);
-
-          const forecastBox = document.getElementById('forecast');
-          forecastBox.innerHTML = '';
-          for (let i = 1; i <= 2; i++) {
-            const wx_i = loc.weatherElement.find(el => el.elementName === 'Wx').time[i].parameter.parameterName;
-            const minT_i = loc.weatherElement.find(el => el.elementName === 'MinT').time[i].parameter.parameterName;
-            const maxT_i = loc.weatherElement.find(el => el.elementName === 'MaxT').time[i].parameter.parameterName;
-            const date = loc.weatherElement[0].time[i].startTime.split(' ')[0];
-            forecastBox.innerHTML += `
-              <div class="forecast-card">
-                <div>${date}</div>
-                <div style="font-size:1.5em">${wxIconMap[wx_i] || '❓'} ${wx_i}</div>
-                <div>${minT_i}~${maxT_i}°C</div>
-              </div>
-            `;
-          }
-        })
-        .catch(err => {
-          document.getElementById('weather').textContent = '載入失敗';
-          console.error(err);
-        });
+    if(editingIndex === -1) {
+      records.push({type, category, amount, note, date});
+    } else {
+      records[editingIndex] = {type, category, amount, note, date};
+      editingIndex = -1;
+      document.querySelector('button[onclick="addRecord()"]').textContent = '新增';
     }
 
-    function getLocationAndFetchWeather() {
-      const cached = localStorage.getItem('weather');
-      if (cached) document.getElementById('weather').innerHTML = cached;
+    saveData();
+    render();
+    clearInputs();
+  }
 
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(pos => {
-          const lat = pos.coords.latitude;
-          const lon = pos.coords.longitude;
-          const county = getCountyByLocation(lat, lon);
-          fetchWeather(county);
-        }, () => {
-          document.getElementById('weather').textContent = '請選擇地區以查詢天氣';
-          document.getElementById('manualCounty').style.display = 'inline';
-        });
-      } else {
-        document.getElementById('weather').textContent = '瀏覽器不支援 GPS';
+  function render() {
+    const tbody = document.getElementById('record-table-body');
+    tbody.innerHTML = '';
+    let totalIncome = 0;
+    let totalCost = 0;
+    let categoryTotals = {};
+
+    records.forEach((r, i) => {
+      let tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${r.date}</td>
+        <td>${r.type==='income'?'收入':'支出'}</td>
+        <td>${r.category}</td>
+        <td>${r.amount}</td>
+        <td>${r.note}</td>
+        <td>
+          <button class="btn-small btn-edit" onclick="editRecord(${i})">✏️</button>
+          <button class="btn-small btn-delete" onclick="deleteRecord(${i})">🗑️</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+
+      if(r.type === 'income') totalIncome += r.amount;
+      else totalCost += r.amount;
+
+      if(!categoryTotals[r.category]) categoryTotals[r.category] = 0;
+      categoryTotals[r.category] += (r.type === 'income' ? r.amount : -r.amount);
+    });
+
+    document.getElementById('total-income').textContent = totalIncome.toLocaleString();
+    document.getElementById('total-cost').textContent = totalCost.toLocaleString();
+    const profit = totalIncome - totalCost;
+    document.getElementById('total-profit').textContent = profit.toLocaleString();
+
+    // 目前餘額 = 初始餘額 + 利潤
+    const currentBalance = initialBalance + profit;
+    document.getElementById('current-balance').textContent = currentBalance.toLocaleString();
+
+    drawChart(categoryTotals);
+  }
+
+  function editRecord(index) {
+    const r = records[index];
+    document.getElementById('type').value = r.type;
+    document.getElementById('category').value = r.category;
+    document.getElementById('amount').value = r.amount;
+    document.getElementById('note').value = r.note;
+    editingIndex = index;
+    document.querySelector('button[onclick="addRecord()"]').textContent = '更新';
+  }
+
+  function deleteRecord(index) {
+    if(confirm('確定刪除此筆記錄嗎？')) {
+      records.splice(index,1);
+      saveData();
+      render();
+    }
+  }
+
+  function drawChart(data) {
+    const labels = Object.keys(data);
+    const values = labels.map(k => Math.abs(data[k]));
+    if(pieChart) pieChart.destroy();
+    pieChart = new Chart(document.getElementById('pieChart'), {
+      type: 'pie',
+      data: {
+        labels: labels,
+        datasets: [{
+          data: values,
+          backgroundColor: ['#f44336', '#2196f3', '#ff9800', '#4caf50', '#9c27b0', '#00bcd4']
+        }]
       }
-    }
+    });
+  }
+</script>
 
-    const hour = new Date().getHours();
-    if (hour >= 6 && hour < 18) {
-      document.body.style.background = '#f5f5f5';
-      document.body.style.color = 'black';
-    }
-  </script>
+</div>
 </body>
 </html>
